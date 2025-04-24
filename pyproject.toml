@@ -1,0 +1,24 @@
+[project]
+name = "nunet"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "bashyalaasman",email = "bashyalaasman@gmail.com"}
+]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy (>=2.2.5,<3.0.0)",
+    "pandas (>=2.2.3,<3.0.0)",
+    "matplotlib (>=3.10.1,<4.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.5"
+
