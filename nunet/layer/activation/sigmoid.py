@@ -7,7 +7,6 @@ class Sigmoid(Module):
         self._last_output = None
         print("Sigmoid module created.")
 
-
     def forward(self, input_data):
         input_array = np.array(input_data)
 
@@ -20,8 +19,7 @@ class Sigmoid(Module):
         return output
 
     def backward(self, gradwrtoutput):
-        gradwrtoutput_array = np.array(gradwrtoutput) 
-        local_gradient = self._last_output * (1.0 - self._last_output) 
-        grad_wrt_input = gradwrtoutput_array * local_gradient 
-        return grad_wrt_input 
-
+        gradwrtoutput_array = np.array(gradwrtoutput)
+        local_gradient = self._last_output * (1.0 - self._last_output)
+        grad_wrt_input = gradwrtoutput_array * local_gradient
+        return grad_wrt_input

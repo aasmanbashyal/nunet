@@ -3,9 +3,10 @@ import numpy as np
 from nunet.dtype import Tensor
 from nunet.layer import Module
 
+
 class Linear(Module):
 
-    def __init__(self, in_features, out_features, bias= True, init_method='normal'):
+    def __init__(self, in_features, out_features, bias=True, init_method='normal'):
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features
@@ -15,7 +16,7 @@ class Linear(Module):
         self.b = None
         self.input = None
         self.init_weights()
-    
+
     def init_weights(self):
         self.W = Tensor((self.in_features, self.out_features),
                         init_method=self.init_method)
@@ -32,7 +33,7 @@ class Linear(Module):
         if self.bias:
             output += self.b
         return output
-    
+
     def backward(self, gradwrtoutput):
         self.W.grad = np.matmul(self.input.T, gradwrtoutput)
         if self.bias:

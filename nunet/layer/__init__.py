@@ -1,4 +1,4 @@
-# dtype/__init__.py
+# layer/__init__.py
 
 from .module import Module
 
