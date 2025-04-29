@@ -23,9 +23,9 @@ class Tensor(np.ndarray):
             return np.ones(shape)
 
         elif init_method == 'rand':
-            return np.random.rand(shape)
+            return np.random.rand(*shape if isinstance(shape, tuple) else (shape,))
 
         elif init_method == 'normal':
-            return np.random.normal(size=shape)
+            return np.random.normal(loc=0.0, scale=0.1, size=shape)
         else:
             return np.zeros(shape)
