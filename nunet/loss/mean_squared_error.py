@@ -1,13 +1,14 @@
-import numpy as np 
+import numpy as np
 
 from .loss_module import LossModule
+
 
 class MSELoss(LossModule):
 
     def __init__(self):
         self.predictions = None
         self.target = None
-        self.input_size = None 
+        self.input_size = None
 
     def forward(self, predictions: np.ndarray, target: np.ndarray):
 
