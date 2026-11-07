@@ -1,92 +1,64 @@
 import numpy as np
 
 from nunet.dtype import Tensor
-from nunet.layer import Module
+from .module import Module
 
 
 class Linear(Module):
+    """Apply an affine transform to the final dimension of an input array."""
 
     def __init__(self, in_features, out_features, bias=True, init_method='xavier'):
         super().__init__()
+        for name, value in [('in_features', in_features), ('out_features', out_features)]:
+            if isinstance(value, bool) or not isinstance(value, (int, np.integer)) or value <= 0:
+                raise ValueError(f"{name} must be a positive integer")
         self.in_features = in_features
         self.out_features = out_features
         self.bias = bias
         self.init_method = init_method
-        self.W = None
-        self.b = None
         self.input = None
+        self.W = Tensor((in_features, out_features), init_method='zeros')
+        self.b = Tensor(out_features, init_method='zeros') if bias else None
         self.init_weights()
 
     def init_weights(self):
         if self.init_method == 'xavier':
             limit = np.sqrt(6 / (self.in_features + self.out_features))
-            weights = np.random.uniform(-limit, limit, (self.in_features, self.out_features))
-            self.W = Tensor((self.in_features, self.out_features), init_method='normal')
-            self.W[:] = weights
+            self.W[...] = np.random.uniform(-limit, limit, self.W.shape)
         else:
-            self.W = Tensor((self.in_features, self.out_features), init_method=self.init_method)
-        
-        if self.bias:
-            self.b = Tensor(self.out_features)
-            self.b[:] = 0.0
-
-    def load_param(self, *params):
-        self.W = params[0]
-        if self.bias:
-            self.b = params[1]
+            self.W[...] = Tensor.init_weights(self.W.shape, self.init_method)
+        if self.b is not None:
+            self.b.fill(0)
 
     def forward(self, input):
+        input = np.asarray(input, dtype=float)
+        if input.ndim == 0 or input.shape[-1] != self.in_features:
+            raise ValueError(f"input must have final dimension {self.in_features}, got {input.shape}")
         self.input = input
-        try:
-            output = np.matmul(input, self.W)
-            if self.bias:
-                output += self.b
-            if np.any(np.isnan(output)) or np.any(np.isinf(output)):
-                print("Warning: NaN or inf values detected in forward pass")
-                output = np.nan_to_num(output, nan=0.0, posinf=1.0, neginf=-1.0)
-            return output
-        except Exception as e:
-            print(f"Error in forward pass: {e}")
-            return np.zeros((input.shape[0], self.out_features))
+        output = input @ np.asarray(self.W)
+        if self.b is not None:
+            output += np.asarray(self.b)
+        return output
 
     def backward(self, gradwrtoutput):
-        try:
-            gradwrtoutput = np.array(gradwrtoutput)
-            if np.any(np.isnan(gradwrtoutput)):
-                print("Warning: NaN values in input gradients")
-                gradwrtoutput = np.nan_to_num(gradwrtoutput, nan=0.0)
-                
-            self.W.grad = np.matmul(self.input.T, gradwrtoutput)
-            
-            if np.any(np.isnan(self.W.grad)):
-                print("Warning: NaN values in weight gradients")
-                self.W.grad = np.nan_to_num(self.W.grad, nan=0.0)
-                
-            if self.bias:
-                self.b.grad = np.sum(gradwrtoutput, axis=0)
-                if np.any(np.isnan(self.b.grad)):
-                    print("Warning: NaN values in bias gradients")
-                    self.b.grad = np.nan_to_num(self.b.grad, nan=0.0)
-            
-            grad_wrt_input = np.matmul(gradwrtoutput, self.W.T)
-            
-            if np.any(np.isnan(grad_wrt_input)):
-                print("Warning: NaN values in output gradients")
-                grad_wrt_input = np.nan_to_num(grad_wrt_input, nan=0.0)
-                
-            return grad_wrt_input
-            
-        except Exception as e:
-            print(f"Error in backward pass: {e}")
-            return np.zeros_like(self.input)
+        if self.input is None:
+            raise RuntimeError("forward must be called before backward")
+        gradwrtoutput = np.asarray(gradwrtoutput, dtype=float)
+        expected_shape = self.input.shape[:-1] + (self.out_features,)
+        if gradwrtoutput.shape != expected_shape:
+            raise ValueError(f"output gradient shape must be {expected_shape}, got {gradwrtoutput.shape}")
+        inputs = self.input.reshape(-1, self.in_features)
+        output_grads = gradwrtoutput.reshape(-1, self.out_features)
+        self.W.grad = inputs.T @ output_grads
+        if self.b is not None:
+            self.b.grad = output_grads.sum(axis=0)
+        return gradwrtoutput @ np.asarray(self.W).T
 
     @property
     def param(self):
-        return [self.W, self.b]
-
-    @property
-    def grad(self):
-        return [self.W.grad, self.b.grad]
+        return [self.W, self.b] if self.b is not None else [self.W]
 
     def __repr__(self):
-        return f"{self.__class__.__name__}(in_features={self.in_features}, out_features={self.out_features}, init_method=\"{self.init_method}\")"
+        return (f"{self.__class__.__name__}(in_features={self.in_features}, "
+                f"out_features={self.out_features}, bias={self.bias}, "
+                f"init_method={self.init_method!r})")
