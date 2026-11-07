@@ -10,18 +10,26 @@ graph.
 Python 3.11 or newer is required. From the repository root:
 
 ```sh
-uv sync
-uv run --with "pytest>=8.3.5,<9" python -m pytest -q
-uv run python -m examples.train_convnet
+uv sync --locked
+uv run --locked python -m pytest -q
+uv run --locked python -m examples.train_convnet
 ```
 
-The existing Poetry build configuration and lockfile are retained. `uv sync`
-resolves `pyproject.toml` independently of `poetry.lock`. To run only the core
-tests without installing the notebook dependencies:
+The library requires only NumPy. The default development environment also
+installs pytest from the `dev` dependency group. CI uses the committed `uv.lock`;
+the Poetry build backend and `poetry.lock` are retained for Poetry 2.2 or newer.
+
+The example notebooks need pandas, Matplotlib, Jupyter Notebook, and
+scikit-learn. Install these only when needed:
 
 ```sh
-uv run --no-project --with "numpy>=2.2.5,<3" --with "pytest>=8.3.5,<9" python -m pytest -q
+uv sync --locked --extra notebooks
+uv run --locked --extra notebooks jupyter notebook
 ```
+
+Use `uv sync --locked --no-dev` for an environment containing just the library
+and its runtime dependency. The synthetic convolutional example needs no
+notebook packages.
 
 ## Train an MLP
 
@@ -118,17 +126,51 @@ Use `layer.load_param(*values)` for an individual layer and
 `model.load_param(parameter_tree)` for a sequential model. Values must match
 the existing parameter shapes.
 
+## Save and load weights
+
+All built-in layers and models provide `save(path)` and `load(path)`. Recreate
+the same model architecture before loading:
+
+```python
+import numpy as np
+from nunet.nn import MLP
+
+model = MLP(1, [16], 1, verbose=False)
+X = np.array([[0.25], [0.75]])
+expected = model(X).copy()
+model.save("model.npz")
+
+restored = MLP(1, [16], 1, verbose=False)
+restored.load("model.npz")
+np.testing.assert_array_equal(restored(X), expected)
+```
+
+Checkpoints store weights and version 1 JSON metadata in a NumPy NPZ archive.
+Loading checks the model's layer types, configuration, parameter names, shapes,
+and dtypes before changing any weights. Existing parameter objects are updated
+in place, so an optimizer created before loading still refers to the model.
+Saving replaces the destination only after writing the complete archive.
+
+This format does not use pickle or construct Python classes from checkpoint
+contents. It supports built-in NuNet modules, including nested `Sequential`
+models. Custom module classes are rejected. Optimizer settings, random-number
+state, gradients, and cached forward-pass values are not saved. After loading,
+start a new forward pass before computing gradients.
+
 ## Development status
 
 - [x] Refactor parameter handling, gradients, and training checkpoints.
 - [x] Implement and test convolution, pooling, and a small convolutional network.
 - [x] Document the API and provide runnable training examples.
+- [x] Run tests in GitHub Actions using locked dependencies.
+- [x] Make notebook dependencies optional.
+- [x] Save and load weights with a versioned checkpoint format.
+
+GitHub Actions runs tests on pull requests and pushes to `main`, covering Linux
+with Python 3.11, 3.12, and 3.13, plus Windows with Python 3.13. The Linux Python
+3.13 job also builds the source distribution and wheel.
 
 Tests cover numerical gradients, convolution against a loop reference, stable
 losses, optimizer updates, early stopping, and learning a small synthetic image
 dataset. The implementation runs on CPU with NumPy; it has no GPU backend,
 dilation, grouped convolution, or automatic differentiation.
-
-Useful next changes are to run this suite in GitHub Actions, move pandas,
-Matplotlib, and Jupyter into optional example dependencies, and add a versioned
-checkpoint format for saving models between sessions.

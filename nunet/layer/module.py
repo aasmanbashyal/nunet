@@ -37,5 +37,19 @@ class Module(ABC):
         for param, value in zip(current_params, values):
             np.copyto(param, value)
 
+    def save(self, path):
+        """Save a versioned weights-only checkpoint for this built-in model."""
+        from nunet.checkpoint import save
+
+        save(self, path)
+        return self
+
+    def load(self, path):
+        """Load a checkpoint into a matching model, retaining parameter objects."""
+        from nunet.checkpoint import load
+
+        load(self, path)
+        return self
+
     def __repr__(self):
         return f"{self.__class__.__name__}()"
